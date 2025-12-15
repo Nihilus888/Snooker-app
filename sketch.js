@@ -1,6 +1,11 @@
+// ==========================
 // Matter.js aliases
+// ==========================
 const { Engine, World, Bodies, Body } = Matter;
 
+// ==========================
+// Globals
+// ==========================
 let engine, world;
 
 let tableLength = 720;
@@ -8,89 +13,176 @@ let tableWidth = tableLength / 2;
 let ballDiameter = tableWidth / 36;
 let pocketDiameter = ballDiameter * 1.5;
 
-// Balls
 let balls = [];
 let cueBall;
-
-// Table boundaries
 let walls = [];
 
+let currentMode = 1;
+
 // Cue interaction
-let aiming = false;          // false until cue ball placed
+let aiming = false;
 let shotPower = 0.02;
 let maxPower = 0.06;
 let minPower = 0.005;
 
-// Cue ball placement
+// Cue-ball placement
 let placingCueBall = true;
-let dZone = {}; // D-zone parameters
+let dZone = {};
 
+// ==========================
+// Setup
+// ==========================
 function setup() {
   createCanvas(1000, 600);
   engine = Engine.create();
   world = engine.world;
-  world.gravity.y = 0; // no gravity
+  world.gravity.y = 0;
 
+  setupTable();
+  setupCueBall();
+  setupMode(1);
+}
+
+// ==========================
+// Table & walls
+// ==========================
+function setupTable() {
   let tableX = (width - tableLength) / 2;
   let tableY = (height - tableWidth) / 2;
 
-  // Table walls
-  walls.push(Bodies.rectangle(tableX + tableLength/2, tableY - 10, tableLength, 20, { isStatic: true }));
-  walls.push(Bodies.rectangle(tableX + tableLength/2, tableY + tableWidth + 10, tableLength, 20, { isStatic: true }));
-  walls.push(Bodies.rectangle(tableX - 10, tableY + tableWidth/2, 20, tableWidth, { isStatic: true }));
-  walls.push(Bodies.rectangle(tableX + tableLength + 10, tableY + tableWidth/2, 20, tableWidth, { isStatic: true }));
+  walls = [
+    Bodies.rectangle(tableX + tableLength/2, tableY - 10, tableLength, 20, { isStatic: true }),
+    Bodies.rectangle(tableX + tableLength/2, tableY + tableWidth + 10, tableLength, 20, { isStatic: true }),
+    Bodies.rectangle(tableX - 10, tableY + tableWidth/2, 20, tableWidth, { isStatic: true }),
+    Bodies.rectangle(tableX + tableLength + 10, tableY + tableWidth/2, 20, tableWidth, { isStatic: true })
+  ];
+
   World.add(world, walls);
 
-  // Cue ball which is initially in the D center
   dZone = {
     x: tableX + tableLength * 0.125,
     y: tableY + tableWidth / 2,
     r: tableWidth / 4
   };
+}
 
+// ==========================
+// Cue ball (human placed)
+// ==========================
+function setupCueBall() {
   cueBall = Bodies.circle(dZone.x, dZone.y, ballDiameter/2, {
     restitution: 0.9,
     frictionAir: 0.02,
+    isStatic: true,
     label: 'cueBall'
   });
   balls.push(cueBall);
-
-  // Pyramid of red balls
-  let startX = tableX + tableLength * 0.7;
-  let startY = tableY + tableWidth / 2 - 2 * ballDiameter;
-  for (let row = 0; row < 5; row++) {
-    for (let i = 0; i <= row; i++) {
-      let ball = Bodies.circle(startX + row * ballDiameter, startY + (i - row/2) * ballDiameter * 1.9, ballDiameter/2, {
-        restitution: 0.9,
-        frictionAir: 0.02,
-        label: 'red'
-      });
-      balls.push(ball);
-    }
-  }
-
-  // Balls that are coloured
-  let colorsData = [
-    {x: tableX + tableLength * 0.75, y: tableY + tableWidth/2, color: 'blue'},
-    {x: tableX + tableLength * 0.875, y: tableY + tableWidth/2 - 2 * ballDiameter, color: 'pink'},
-    {x: tableX + tableLength * 0.875, y: tableY + tableWidth/2 + 2 * ballDiameter, color: 'black'},
-    {x: tableX + tableLength * 0.75, y: tableY + tableWidth/4, color: 'yellow'},
-    {x: tableX + tableLength * 0.75, y: tableY + 3 * tableWidth/4, color: 'green'},
-    {x: tableX + tableLength * 0.75, y: tableY + tableWidth/2, color: 'brown'}
-  ];
-
-  for (let c of colorsData) {
-    let ball = Bodies.circle(c.x, c.y, ballDiameter/2, {
-      restitution: 0.9,
-      frictionAir: 0.02,
-      label: c.color
-    });
-    balls.push(ball);
-  }
-
-  World.add(world, balls);
+  World.add(world, cueBall);
 }
 
+// ==========================
+// Modes
+// ==========================
+function setupMode(mode) {
+  currentMode = mode;
+
+  balls = balls.filter(b => b.label === 'cueBall');
+  World.clear(world, false);
+  World.add(world, walls);
+  World.add(world, cueBall);
+
+  addColouredBalls();
+
+  if (mode === 1) addStandardReds();
+  if (mode === 2) addRandomClusterReds();
+  if (mode === 3) addPracticeReds();
+}
+
+// ==========================
+// Reds
+// ==========================
+function addStandardReds() {
+  let tableX = (width - tableLength) / 2;
+  let tableY = (height - tableWidth) / 2;
+
+  let startX = tableX + tableLength * 0.7;
+  let startY = tableY + tableWidth / 2 - 2 * ballDiameter;
+
+  for (let row = 0; row < 5; row++) {
+    for (let i = 0; i <= row; i++) {
+      createBall(
+        startX + row * ballDiameter,
+        startY + (i - row/2) * ballDiameter * 1.9,
+        'red'
+      );
+    }
+  }
+}
+
+function addRandomClusterReds() {
+  let tableX = (width - tableLength) / 2;
+  let tableY = (height - tableWidth) / 2;
+
+  let cx = tableX + tableLength * 0.7;
+  let cy = tableY + tableWidth / 2;
+
+  for (let i = 0; i < 15; i++) {
+    createBall(
+      cx + random(-40, 40),
+      cy + random(-40, 40),
+      'red'
+    );
+  }
+}
+
+function addPracticeReds() {
+  let tableX = (width - tableLength) / 2;
+  let tableY = (height - tableWidth) / 2;
+
+  for (let i = 0; i < 6; i++) {
+    createBall(
+      tableX + tableLength * 0.6 + i * ballDiameter * 1.5,
+      tableY + tableWidth / 2,
+      'red'
+    );
+  }
+}
+
+// ==========================
+// Coloured balls
+// ==========================
+function addColouredBalls() {
+  let tableX = (width - tableLength) / 2;
+  let tableY = (height - tableWidth) / 2;
+
+  let data = [
+    ['yellow', tableX + tableLength*0.125, tableY + tableWidth*0.25],
+    ['green',  tableX + tableLength*0.125, tableY + tableWidth*0.75],
+    ['brown',  tableX + tableLength*0.125, tableY + tableWidth*0.5],
+    ['blue',   tableX + tableLength*0.5,   tableY + tableWidth*0.5],
+    ['pink',   tableX + tableLength*0.75,  tableY + tableWidth*0.5],
+    ['black',  tableX + tableLength*0.9,   tableY + tableWidth*0.5]
+  ];
+
+  for (let c of data) createBall(c[1], c[2], c[0]);
+}
+
+// ==========================
+// Ball creation helper
+// ==========================
+function createBall(x, y, label) {
+  let b = Bodies.circle(x, y, ballDiameter/2, {
+    restitution: 0.9,
+    frictionAir: 0.02,
+    label
+  });
+  balls.push(b);
+  World.add(world, b);
+}
+
+// ==========================
+// Draw loop
+// ==========================
 function draw() {
   background(0, 120, 0);
   Engine.update(engine);
@@ -103,67 +195,45 @@ function draw() {
   if (!placingCueBall) drawCue();
   drawPowerBar();
 
-  if (!placingCueBall && !aiming && allBallsStopped()) {
-    aiming = true;
-  }
+  if (!placingCueBall && !aiming && allBallsStopped()) aiming = true;
 }
 
-// Draw table
+// ==========================
+// Rendering helpers
+// ==========================
 function drawTable() {
-  let tableX = (width - tableLength) / 2;
-  let tableY = (height - tableWidth) / 2;
-
-  fill(0, 100, 0);
-  stroke(150, 75, 0);
+  let x = (width - tableLength) / 2;
+  let y = (height - tableWidth) / 2;
+  stroke(120, 60, 20);
   strokeWeight(20);
-  rect(tableX, tableY, tableLength, tableWidth, 20);
+  fill(0, 100, 0);
+  rect(x, y, tableLength, tableWidth, 20);
 }
 
-// Draw pockets
 function drawPockets() {
-  let tableX = (width - tableLength) / 2;
-  let tableY = (height - tableWidth) / 2;
+  let x = (width - tableLength) / 2;
+  let y = (height - tableWidth) / 2;
   fill(0);
   noStroke();
 
-  let pockets = [
-    [tableX, tableY], [tableX + tableLength / 2, tableY], [tableX + tableLength, tableY],
-    [tableX, tableY + tableWidth], [tableX + tableLength / 2, tableY + tableWidth], [tableX + tableLength, tableY + tableWidth]
+  let p = [
+    [x,y],[x+tableLength/2,y],[x+tableLength,y],
+    [x,y+tableWidth],[x+tableLength/2,y+tableWidth],[x+tableLength,y+tableWidth]
   ];
-
-  for (let p of pockets) ellipse(p[0], p[1], pocketDiameter);
+  for (let pt of p) ellipse(pt[0], pt[1], pocketDiameter);
 }
 
-// Draw D-zone
 function drawDZone() {
   if (!placingCueBall) return;
   noFill();
-  stroke(255, 255, 0);
-  strokeWeight(2);
+  stroke(255,255,0);
   arc(dZone.x, dZone.y, dZone.r*2, dZone.r*2, PI/2, 3*PI/2);
 }
 
-// Draw all balls + pocket detection
 function drawBalls() {
-  for (let i = balls.length - 1; i >= 0; i--) {
-    let b = balls[i];
+  for (let b of balls) {
     fill(getBallColor(b.label));
     ellipse(b.position.x, b.position.y, ballDiameter);
-
-    // Pocket detection
-    let tableX = (width - tableLength) / 2;
-    let tableY = (height - tableWidth) / 2;
-    let pockets = [
-      [tableX, tableY], [tableX + tableLength/2, tableY], [tableX + tableLength, tableY],
-      [tableX, tableY + tableWidth], [tableX + tableLength/2, tableY + tableWidth], [tableX + tableLength, tableY + tableWidth]
-    ];
-    for (let p of pockets) {
-      if (dist(b.position.x, b.position.y, p[0], p[1]) < pocketDiameter/2) {
-        World.remove(world, b);
-        balls.splice(i,1);
-        break;
-      }
-    }
   }
 }
 
@@ -173,77 +243,86 @@ function getBallColor(label) {
   return label;
 }
 
-// Cue drawing
+// ==========================
+// Cue
+// ==========================
 function drawCue() {
   if (!aiming) return;
-
-  let cuePos = cueBall.position;
-  let angle = atan2(mouseY - cuePos.y, mouseX - cuePos.x);
+  let p = cueBall.position;
+  let a = atan2(mouseY - p.y, mouseX - p.x);
 
   push();
-  translate(cuePos.x, cuePos.y);
-  rotate(angle);
-  stroke(200, 170, 120);
+  translate(p.x, p.y);
+  rotate(a);
+  stroke(200,170,120);
   strokeWeight(6);
-  line(-120 - shotPower * 2000, 0, -20, 0);
+  line(-120 - shotPower*2000, 0, -20, 0);
   pop();
 }
 
-// Power bar visualization
 function drawPowerBar() {
   fill(255);
-  textSize(14);
   text("Power", 20, height - 40);
   noFill();
   stroke(255);
   rect(20, height - 30, 150, 10);
   noStroke();
-  fill(255, 0, 0);
+  fill(255,0,0);
   rect(20, height - 30, map(shotPower, minPower, maxPower, 0, 150), 10);
 }
 
-// Mouse drag for cue ball placement
+// ==========================
+// Input
+// ==========================
 function mouseDragged() {
   if (!placingCueBall) return;
 
   let dx = mouseX - dZone.x;
   let dy = mouseY - dZone.y;
-  let distToCenter = sqrt(dx*dx + dy*dy);
+  let d = sqrt(dx*dx + dy*dy);
 
-  if (distToCenter <= dZone.r) {
+  if (d <= dZone.r)
     Body.setPosition(cueBall, {x: mouseX, y: mouseY});
-  } else {
-    let angle = atan2(dy, dx);
-    Body.setPosition(cueBall, {x: dZone.x + cos(angle)*dZone.r, y: dZone.y + sin(angle)*dZone.r});
+  else {
+    let a = atan2(dy, dx);
+    Body.setPosition(cueBall, {
+      x: dZone.x + cos(a)*dZone.r,
+      y: dZone.y + sin(a)*dZone.r
+    });
   }
 }
 
-// Keyboard controls
 function keyPressed() {
-  if (placingCueBall) {
-    if (key === ' ') {
-      placingCueBall = false;
-      aiming = true;
-    }
-  } else {
+  if (key === '1') setupMode(1);
+  if (key === '2') setupMode(2);
+  if (key === '3') setupMode(3);
+
+  if (placingCueBall && key === ' ') {
+    placingCueBall = false;
+    Body.setStatic(cueBall, false);
+    aiming = true;
+    return;
+  }
+
+  if (!placingCueBall) {
     if (keyCode === UP_ARROW) shotPower = min(shotPower + 0.005, maxPower);
     if (keyCode === DOWN_ARROW) shotPower = max(shotPower - 0.005, minPower);
     if (key === ' ') strikeCueBall();
   }
 }
 
-// Strike cue ball
 function strikeCueBall() {
   if (!aiming) return;
-
-  let cuePos = cueBall.position;
-  let angle = atan2(mouseY - cuePos.y, mouseX - cuePos.x);
-  let force = { x: cos(angle) * shotPower, y: sin(angle) * shotPower };
-  Body.applyForce(cueBall, cueBall.position, force);
+  let p = cueBall.position;
+  let a = atan2(mouseY - p.y, mouseX - p.x);
+  Body.applyForce(cueBall, p, {
+    x: cos(a)*shotPower,
+    y: sin(a)*shotPower
+  });
   aiming = false;
 }
 
-// Check if balls are stopped
+// ==========================
 function allBallsStopped() {
   return balls.every(b => abs(b.velocity.x) < 0.05 && abs(b.velocity.y) < 0.05);
 }
