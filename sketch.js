@@ -29,6 +29,13 @@ let minPower = 0.005;
 let placingCueBall = true;
 let dZone = {};
 
+const cushionMaterial = {
+  isStatic: true,
+  restitution: 0.8,
+  friction: 0,
+  frictionStatic: 0
+};
+
 // ==========================
 // Setup
 // ==========================
@@ -51,10 +58,34 @@ function setupTable() {
   let tableY = (height - tableWidth) / 2;
 
   walls = [
-    Bodies.rectangle(tableX + tableLength/2, tableY - 10, tableLength, 20, { isStatic: true }),
-    Bodies.rectangle(tableX + tableLength/2, tableY + tableWidth + 10, tableLength, 20, { isStatic: true }),
-    Bodies.rectangle(tableX - 10, tableY + tableWidth/2, 20, tableWidth, { isStatic: true }),
-    Bodies.rectangle(tableX + tableLength + 10, tableY + tableWidth/2, 20, tableWidth, { isStatic: true })
+    Bodies.rectangle(
+      tableX + tableLength / 2,
+      tableY - 10,
+      tableLength,
+      20,
+      cushionMaterial
+    ),
+    Bodies.rectangle(
+      tableX + tableLength / 2,
+      tableY + tableWidth + 10,
+      tableLength,
+      20,
+      cushionMaterial
+    ),
+    Bodies.rectangle(
+      tableX - 10,
+      tableY + tableWidth / 2,
+      20,
+      tableWidth,
+      cushionMaterial
+    ),
+    Bodies.rectangle(
+      tableX + tableLength + 10,
+      tableY + tableWidth / 2,
+      20,
+      tableWidth,
+      cushionMaterial
+    )
   ];
 
   World.add(world, walls);
