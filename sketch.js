@@ -36,6 +36,13 @@ const cushionMaterial = {
   frictionStatic: 0
 };
 
+let trails = new Map();   // ball.id → [{x,y,life}]
+const MAX_TRAIL = 12;
+
+let cueImpacts = [];
+
+let pocketAnimations = [];
+
 // ==========================
 // Setup
 // ==========================
@@ -179,6 +186,71 @@ function addPracticeReds() {
   }
 }
 
+function drawBallTrails() {
+  noStroke();
+  for (let trail of trails.values()) {
+    for (let t of trail) {
+      fill(255, t.life * 0.4);
+      ellipse(t.x, t.y, ballDiameter * 0.6);
+    }
+  }
+}
+
+function updateBallTrails() {
+  for (let b of balls) {
+    let speed = b.speed;
+
+    if (!trails.has(b.id)) trails.set(b.id, []);
+
+    let trail = trails.get(b.id);
+
+    if (speed > 0.3) {
+      trail.push({
+        x: b.position.x,
+        y: b.position.y,
+        life: 255
+      });
+      if (trail.length > MAX_TRAIL) trail.shift();
+    }
+
+    trail.forEach(t => t.life -= 18);
+    trails.set(b.id, trail.filter(t => t.life > 0));
+  }
+}
+
+function updatePocketAnimations() {
+  pocketAnimations.forEach(p => {
+    p.r *= 0.85;
+    p.alpha -= 25;
+  });
+  pocketAnimations = pocketAnimations.filter(p => p.alpha > 0);
+}
+
+function drawPocketAnimations() {
+  noStroke();
+  pocketAnimations.forEach(p => {
+    fill(0, p.alpha);
+    ellipse(p.x, p.y, p.r);
+  });
+}
+
+function updateCueImpacts() {
+  cueImpacts.forEach(i => {
+    i.r += 6;
+    i.alpha -= 25;
+  });
+  cueImpacts = cueImpacts.filter(i => i.alpha > 0);
+}
+
+function drawCueImpacts() {
+  noFill();
+  strokeWeight(2);
+  cueImpacts.forEach(i => {
+    stroke(255, 255, 255, i.alpha);
+    ellipse(i.x, i.y, i.r);
+  });
+}
+
 // ==========================
 // Coloured balls
 // ==========================
@@ -221,7 +293,17 @@ function draw() {
   drawTable();
   drawPockets();
   drawDZone();
+
+  updateBallTrails();
+  drawBallTrails();  
+
   drawBalls();
+
+  updateCueImpacts();
+  drawCueImpacts();
+
+  updatePocketAnimations();
+  drawPocketAnimations();
 
   if (!placingCueBall) drawCue();
   drawPowerBar();
@@ -262,9 +344,43 @@ function drawDZone() {
 }
 
 function drawBalls() {
-  for (let b of balls) {
+  let tableX = (width - tableLength) / 2;
+  let tableY = (height - tableWidth) / 2;
+
+  let pockets = [
+    [tableX, tableY],
+    [tableX + tableLength / 2, tableY],
+    [tableX + tableLength, tableY],
+    [tableX, tableY + tableWidth],
+    [tableX + tableLength / 2, tableY + tableWidth],
+    [tableX + tableLength, tableY + tableWidth]
+  ];
+
+  for (let i = balls.length - 1; i >= 0; i--) {
+    let b = balls[i];
+
+    // draw ball
     fill(getBallColor(b.label));
+    noStroke();
     ellipse(b.position.x, b.position.y, ballDiameter);
+
+    // pocket detection
+    for (let p of pockets) {
+      if (dist(b.position.x, b.position.y, p[0], p[1]) < pocketDiameter / 2) {
+
+        // pocket animation
+        pocketAnimations.push({
+          x: p[0],
+          y: p[1],
+          r: pocketDiameter,
+          alpha: 255
+        });
+
+        World.remove(world, b);
+        balls.splice(i, 1);
+        break;
+      }
+    }
   }
 }
 
@@ -344,16 +460,29 @@ function keyPressed() {
 
 function strikeCueBall() {
   if (!aiming) return;
+
   let p = cueBall.position;
   let a = atan2(mouseY - p.y, mouseX - p.x);
-  Body.applyForce(cueBall, p, {
-    x: cos(a)*shotPower,
-    y: sin(a)*shotPower
+
+  let force = {
+    x: cos(a) * shotPower,
+    y: sin(a) * shotPower
+  };
+
+  Body.applyForce(cueBall, cueBall.position, force);
+
+  // cue impact animation
+  cueImpacts.push({
+    x: p.x,
+    y: p.y,
+    r: 10,
+    alpha: 255
   });
+
   aiming = false;
 }
-
 // ==========================
 function allBallsStopped() {
   return balls.every(b => abs(b.velocity.x) < 0.05 && abs(b.velocity.y) < 0.05);
 }
+
