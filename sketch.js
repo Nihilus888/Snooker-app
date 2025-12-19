@@ -486,3 +486,63 @@ function allBallsStopped() {
   return balls.every(b => abs(b.velocity.x) < 0.05 && abs(b.velocity.y) < 0.05);
 }
 
+/*
+============================================================
+Application Design
+============================================================
+
+This snooker application was built using p5.js for rendering and Matter.js for handling
+the physics simulation. The table follows official snooker proportions (12 ft × 6 ft),
+with all elements scaled consistently into pixel units. Balls, cushions, and table
+boundaries are implemented as Matter.js bodies, which allows realistic collision
+handling including friction, restitution, and momentum transfer. The cushions are
+static bodies with a higher restitution value than the balls, so the balls rebound
+correctly off the table edges.
+
+The cue interaction was designed using a combination of mouse and keyboard input.
+The mouse controls the aiming direction by calculating the angle between the cue ball
+and the cursor position, which makes aiming intuitive and precise. Shot power is
+controlled using the UP and DOWN arrow keys, allowing gradual adjustment of force.
+This avoids the common “drag-and-release” cue mechanic, which can feel inconsistent
+and hard to control. Separating aiming and power provides better precision and more
+realistic gameplay.
+
+The cue ball is not automatically placed at the start of the game. Instead, the player
+must manually position it inside the “D” zone using mouse dragging and confirm the
+placement with a key press. Constraints are applied to ensure the cue ball cannot be
+placed outside the legal area, enforcing proper snooker rules and meeting the
+requirement for human-controlled ball insertion.
+
+Ball arrangements are implemented using three selectable modes. These include a
+standard triangular rack for reds, a clustered random layout generated using nested
+loops and randomness, and a practice-style layout where reds are more spaced out.
+The coloured balls are always placed at their official regulation positions on the table.
+
+============================================================
+Visual Feedback and Animation
+============================================================
+
+Several visual effects were added to improve clarity and feedback during gameplay.
+Moving balls generate a fading trail effect, making their speed and direction easier to
+track. When the cue strikes the cue ball, a brief ripple animation appears at the
+contact point to emphasise the moment of impact. When a ball is potted, a short
+shrinking fade animation appears at the pocket location to clearly indicate a successful
+pot.
+
+============================================================
+Creative Extension – Shot Prediction Path
+============================================================
+
+As a creative extension, a shot prediction path was implemented to help players plan
+their shots. While aiming, an estimated trajectory of the cue ball is displayed using a
+series of small fading points projected forward from the cue ball. The path is based on
+the current cue direction and selected shot power, with gradual decay applied to
+approximate friction and energy loss.
+
+This prediction system is purely visual and does not interact with the Matter.js physics
+engine or affect the actual simulation. By keeping it separate from the physics logic,
+the feature improves usability without reducing realism. This type of shot prediction
+is uncommon in traditional snooker games and represents a technically challenging
+yet intuitive extension that enhances strategic gameplay.
+============================================================
+*/
