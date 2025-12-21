@@ -1,59 +1,106 @@
 // ==========================
 // 1. Matter.js Aliases & Globals
 // ==========================
+
+// Matter.js module destructuring for easier access
 const { Engine, World, Bodies, Body, Vector } = Matter;
+
+// Physics engine and world
 let engine, world;
 
-// Requirement: Table Ratio 2:1
+// ==========================
+// Table Dimensions
+// ==========================
+
+// Requirement: Table ratio 2:1
 let tableLength = 800; 
 let tableWidth = tableLength / 2; 
 
-// Requirement: Ball diameter = width / 36
+// Ball & Pocket Sizes
+// Requirement: Ball diameter = tableWidth / 36
 let ballDiameter = tableWidth / 36; 
 let pocketDiameter = ballDiameter * 1.5;
 
-let balls = [];
-let cueBall;
-let walls = [];
+// ==========================
+// Game Objects
+// ==========================
 
+// All balls (cue + reds + coloured)
+let balls = [];       
+ // The cue ball itself
+let cueBall;          
+// Table cushions/walls
+let walls = [];      
+
+// ==========================
 // Game States
-let currentMode = 1;
-let aiming = false;
-let shotPower = 0.02;
-const maxPower = 0.07;
-const minPower = 0.005;
-let placingCueBall = true;
-let dZone = {};
+// ==========================
+ // 1 = Standard, 2 = Random, 3 = Practice
+let currentMode = 1;  
 
-// Requirement 7: Different physics for cushions
+// True if player is aiming        
+let aiming = false;  
+
+// Force applied when striking         
+let shotPower = 0.02;   
+
+// Maximum shot power      
+const maxPower = 0.07;  
+
+// Minimum shot power      
+const minPower = 0.005; 
+
+// Cue ball placement mode      
+let placingCueBall = true;   
+
+// "D" zone for cue ball placement
+let dZone = {};               
+
+// ==========================
+// Physics Materials
+// ==========================
+
+// Requirement 7: Different physics for cushions vs balls
 const cushionMaterial = { isStatic: true, restitution: 0.6, friction: 0.05 };
 const ballMaterial = { restitution: 0.9, frictionAir: 0.018, friction: 0.01 };
 
+// ==========================
 // Visual Effects (Requirement 8)
-let trails = new Map();
+// ==========================
+// Ball trails for movement
+let trails = new Map();        
 const MAX_TRAIL = 15;
-let cueImpacts = [];
-let pocketAnimations = [];
+// Cue strike visual effects
+let cueImpacts = [];     
+// Pocket entry animations      
+let pocketAnimations = [];     
 
 // ==========================
-// 2. Setup (Requirement 1 & 2)
+// 2. Setup Canvas & Engine
 // ==========================
 function setup() {
   createCanvas(1000, 600);
   engine = Engine.create();
   world = engine.world;
-  world.gravity.y = 0;
+  // Top-down view, no gravity
+  world.gravity.y = 0;  
 
-  setupTable();
-  setupCueBall();
-  setupMode(1);
+  // Draw walls/cushions
+  setupTable();   
+  // Place cue ball in D    
+  setupCueBall();    
+  // Initialize default ball mode 
+  setupMode(1);       
 }
 
+// ==========================
+// Table & Cushions
+// ==========================
 function setupTable() {
   let tx = (width - tableLength) / 2;
   let ty = (height - tableWidth) / 2;
 
-  // Requirement 2: Correct colors and lines
+  // Requirement 2: Table walls (cushions) with physics
   walls = [
     Bodies.rectangle(tx + tableLength / 2, ty - 10, tableLength, 20, cushionMaterial),
     Bodies.rectangle(tx + tableLength / 2, ty + tableWidth + 10, tableLength, 20, cushionMaterial),
@@ -62,11 +109,15 @@ function setupTable() {
   ];
   World.add(world, walls);
 
+  // Define "D" zone for cue ball placement
   dZone = { x: tx + tableLength * 0.2, y: ty + tableWidth / 2, r: tableWidth / 4 };
 }
 
-// Requirement 6: Cue ball manual insertion in "D" zone
+// ==========================
+// Cue Ball Placement (Requirement 6)
+// ==========================
 function setupCueBall() {
+  // Remove existing cueBall if any
   if (cueBall) World.remove(world, cueBall);
   cueBall = Bodies.circle(dZone.x, dZone.y, ballDiameter/2, { 
     ...ballMaterial, 
@@ -75,25 +126,29 @@ function setupCueBall() {
   });
   balls.push(cueBall);
   World.add(world, cueBall);
-  placingCueBall = true;
+  // Enable drag placement
+  placingCueBall = true; 
 }
 
 // ==========================
-// 3. Modes (Requirement 3: Nested Loops & Random)
+// 3. Ball Modes (Requirement 3)
 // ==========================
 function setupMode(mode) {
   currentMode = mode;
+
+  // Remove all balls except cue ball
   let toRemove = balls.filter(b => b.label !== 'cueBall');
   World.remove(world, toRemove);
   balls = [cueBall];
 
-  addColouredBalls();
+  // Place yellow, green, brown, blue, pink, black
+  addColouredBalls(); 
 
   let tx = (width - tableLength) / 2;
   let ty = (height - tableWidth) / 2;
 
   if (mode === 1) {
-    // REQUIREMENT 3: Nested Loop for Triangle
+    // Mode 1: Standard triangle using nested loops
     let startX = tx + tableLength * 0.7;
     let startY = ty + tableWidth / 2;
     for (let row = 0; row < 5; row++) {
@@ -102,12 +157,12 @@ function setupMode(mode) {
       }
     }
   } else if (mode === 2) {
-    // REQUIREMENT 3: Random positions for Reds
+    // Mode 2: Random cluster positions
     for(let i=0; i<15; i++) {
       createBall(tx + tableLength * 0.7 + random(-60, 60), ty + tableWidth/2 + random(-60, 60), 'red');
     }
   } else if (mode === 3) {
-    // REQUIREMENT 3: Practice mode
+    // Mode 3: Practice line of reds
     for(let i=0; i<10; i++) {
       createBall(tx + tableLength * 0.4 + (i * ballDiameter * 1.5), ty + tableWidth * 0.3, 'red');
     }
@@ -115,11 +170,11 @@ function setupMode(mode) {
 }
 
 // ==========================
-// 4. Interaction (Requirement 5 & 6)
+// 4. Input Handling (Requirement 5 & 6)
 // ==========================
 function mouseDragged() {
-  // Requirement 6: Restricted to "D" zone
-  if (placingCueBall && mouseX <= dZone.x) {
+  // Restrict cue ball drag to "D" zone
+  if (placingCueBall) {
     let dx = mouseX - dZone.x;
     let dy = mouseY - dZone.y;
     if (sqrt(dx*dx + dy*dy) <= dZone.r) {
@@ -133,59 +188,68 @@ function keyPressed() {
   if (key === '2') setupMode(2);
   if (key === '3') setupMode(3);
 
-  // Requirement 5: Mouse + Key combo
   if (placingCueBall && key === ' ') {
     placingCueBall = false;
-    Body.setStatic(cueBall, false);
+    // Enable physics
+    Body.setStatic(cueBall, false); 
     aiming = true;
   } else if (aiming && key === ' ') {
     strikeCueBall();
   }
+
+  // Power control
+  if (!placingCueBall) {
+    if (keyCode === UP_ARROW) shotPower = min(shotPower + 0.005, maxPower);
+    if (keyCode === DOWN_ARROW) shotPower = max(shotPower - 0.005, minPower);
+  }
 }
 
+// Strike cue ball (Requirement 5)
 function strikeCueBall() {
   let p = cueBall.position;
   let a = atan2(mouseY - p.y, mouseX - p.x);
   let force = { x: cos(a) * shotPower, y: sin(a) * shotPower };
   Body.applyForce(cueBall, p, force);
-  
-  // Requirement 8b: Cue Impact FX
+
+  // Cue Impact Animation (Requirement 8b)
   cueImpacts.push({ x: p.x, y: p.y, r: 5, alpha: 255 });
   aiming = false;
 }
 
 // ==========================
-// 5. Drawing & Requirement 8 (Animations)
+// 5. Draw Loop & Animations (Requirement 8)
 // ==========================
 function draw() {
-  background(30);
+  // Dark table background
+  background(30); 
   Engine.update(engine);
 
   drawTable();
   drawPockets();
   drawDZone();
 
-  // Requirement 8a: Ball Trails
+  // Ball trails
   updateBallTrails();
   drawBallTrails();
 
   drawBallsAndCheckPockets();
 
-  // Requirement 8b & 8c
+  // Cue and pocket animations
   drawCueImpacts();
   drawPocketAnimations();
 
   if (!placingCueBall) {
     drawCue();
-    drawExtensionLaser(); // UNIQUE EXTENSION
+    // Unique extension: predictive aim
+    drawExtensionLaser(); 
   }
-  
+
   drawUI();
 
   if (!placingCueBall && !aiming && allBallsStopped()) aiming = true;
 }
 
-// Requirement 8c: Pocket Entry Animation
+// Draw balls and check for pocket entry (Requirement 8c)
 function drawBallsAndCheckPockets() {
   let tx = (width - tableLength) / 2;
   let ty = (height - tableWidth) / 2;
@@ -199,11 +263,11 @@ function drawBallsAndCheckPockets() {
 
     for (let p of pockets) {
       if (dist(b.position.x, b.position.y, p[0], p[1]) < pocketDiameter / 1.5) {
-        // Trigger Shrinking Animation
         pocketAnimations.push({ x: b.position.x, y: b.position.y, r: ballDiameter, alpha: 255 });
         World.remove(world, b);
         balls.splice(i, 1);
-        if (b.label === 'cueBall') setupCueBall();
+        // Reset cue ball
+        if (b.label === 'cueBall') setupCueBall(); 
         break;
       }
     }
@@ -211,13 +275,13 @@ function drawBallsAndCheckPockets() {
 }
 
 // ==========================
-// EXTENSION: Predictive Aim Guide
+// 6. Extension: Predictive Aim Guide
 // ==========================
 function drawExtensionLaser() {
   if (!aiming) return;
   let p = cueBall.position;
   let a = atan2(mouseY - p.y, mouseX - p.x);
-  
+
   stroke(255, 255, 255, 50);
   strokeWeight(1);
   let laserLen = map(shotPower, minPower, maxPower, 50, 400);
@@ -226,20 +290,20 @@ function drawExtensionLaser() {
 }
 
 // ==========================
-// Helper Visual Functions
+// 7. Helper Functions
 // ==========================
 function drawTable() {
   let tx = (width - tableLength) / 2;
   let ty = (height - tableWidth) / 2;
-  // Frame
   fill(80, 40, 20); stroke(0); strokeWeight(2);
-  rect(tx-15, ty-15, tableLength+30, tableWidth+30, 10);
-  // Cloth
+  // Frame
+  rect(tx-15, ty-15, tableLength+30, tableWidth+30, 10); 
   fill(34, 139, 34); noStroke();
+  // Cloth
   rect(tx, ty, tableLength, tableWidth);
-  // Baulk Line
   stroke(255, 100); strokeWeight(1);
-  line(tx + tableLength * 0.2, ty, tx + tableLength * 0.2, ty + tableWidth);
+  // Baulk line
+  line(tx + tableLength * 0.2, ty, tx + tableLength * 0.2, ty + tableWidth); 
 }
 
 function drawPockets() {
@@ -264,7 +328,8 @@ function drawCue() {
   translate(p.x, p.y);
   rotate(a);
   stroke(222, 184, 135); strokeWeight(4);
-  line(-160 - (shotPower * 1000), 0, -20, 0);
+  // Cue length depends on shot power
+  line(-160 - (shotPower * 1000), 0, -20, 0); 
   pop();
 }
 
@@ -272,14 +337,14 @@ function drawUI() {
   fill(255); noStroke(); textAlign(CENTER);
   text("Press 1, 2, 3 for Modes | Arrows for Power | Space to Strike", width/2, 30);
   if (placingCueBall) text("DRAG CUE BALL IN 'D' AND PRESS SPACE", width/2, height - 30);
-  
+
   // Power Bar
   stroke(255); noFill(); rect(width - 120, height - 40, 100, 10);
   fill(255, 0, 0); noStroke();
   rect(width - 120, height - 40, map(shotPower, minPower, maxPower, 0, 100), 10);
 }
 
-// Physics Helpers
+// Physics helpers
 function createBall(x, y, label) {
   let b = Bodies.circle(x, y, ballDiameter / 2, { ...ballMaterial, label });
   balls.push(b);
@@ -313,9 +378,11 @@ function updateBallTrails() {
     trails.set(b.id, t.filter(p => p.life > 0));
   });
 }
+
 function drawBallTrails() {
   trails.forEach(t => t.forEach(p => { fill(255, p.life * 0.15); noStroke(); ellipse(p.x, p.y, ballDiameter * 0.7); }));
 }
+
 function drawCueImpacts() {
   cueImpacts.forEach((i, idx) => {
     noFill(); stroke(255, i.alpha); ellipse(i.x, i.y, i.r);
@@ -323,6 +390,7 @@ function drawCueImpacts() {
     if (i.alpha <= 0) cueImpacts.splice(idx, 1);
   });
 }
+
 function drawPocketAnimations() {
   pocketAnimations.forEach((p, idx) => {
     fill(255, p.alpha); noStroke(); ellipse(p.x, p.y, p.r);
@@ -330,6 +398,7 @@ function drawPocketAnimations() {
     if (p.alpha <= 0) pocketAnimations.splice(idx, 1);
   });
 }
+
 
 /*
 ============================================================
